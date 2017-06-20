@@ -15,7 +15,9 @@ class CAtwoD(object):
 		self.pChange = pChange
 		self.maxvel = maxvel
 		self.cars = len(start)
-		
+		  
+      
+      #start = [(0,0), (2,0), (3,0), (6, 0), (5,1)]
 		for i in start:
 			self.grid[i] = 1
 			self.velocities[i] = 1
@@ -24,6 +26,7 @@ class CAtwoD(object):
 		self.distances = []  # Grid distances
 			
 	def returnGrid(self):
+    #1-D
 		'''
 		Function which returns the grid for plotting purposes. The coordinates
 		of the cars will be stored in an array.
@@ -55,9 +58,10 @@ class CAtwoD(object):
 				# Say a vehicle changes lanes at random if the lane next to it
 				# has room (a vacant space) next to it
 				
-					
+
 				if self.grid[i,j] == True: # Car found
 					possShifts = []
+                #Check room within boundaries
 					if j - 1 >= 0:
 						if self.grid[i,j-1] == False:
 							possShifts.append(-1)
@@ -65,12 +69,13 @@ class CAtwoD(object):
 						if self.grid[i,j+1] == False:
 							possShifts.append(1)
 							
-							
+					#check if can shift, and probablity it does change
 					if len(possShifts) > 0 and np.random.rand() < self.pChange:
 						shift = np.random.choice(possShifts)
 						self.laneChanges[(i, j+shift)] = (i, j)  # Store the prev pos
 						self.lanes.add((i, j+shift)) # Hashes in set for speed
 						
+                   #new positions and velocities
 						self.velocities[i,j+shift] = self.velocities[i,j]
 						self.velocities[i,j] = 0
 						self.grid[i,j] = 0
@@ -86,12 +91,14 @@ class CAtwoD(object):
 		for k in range(self.M):
 			for i in range(self.N):
 				for j in range(1, int(self.velocities[i,k]) + 1):
+                    
+                # Wat gebeurt er hier???
 					# Use modulo to implement periodic boundaries
 					if self.grid[(i+j) % self.N, k]:
 						self.velocities[i, k] = j - 1
 						break # Found a grid where a crash could occur
 					
-		# Randomize speeds/slowdowns
+		# Randomize slowdowns
 		for j in range(self.M):
 			for i in range(self.N):
 				if np.random.rand() < self.pSlow and self.grid[i,j] == True \
@@ -243,7 +250,7 @@ xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 # Starting cars
 
 #start = [(0,0), (2,0), (3,0), (6, 0), (5,1)]
-start = generateStart(N, M, 1)
+start = generateStart(N, M, 5)
 # Create a CA object
 test = CAtwoD(N, M, start, 0.1, 5, 0.3)
 ycoordinates = []
