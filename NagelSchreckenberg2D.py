@@ -5,12 +5,14 @@ import matplotlib.animation as animation
 import matplotlib.patches as patches
 from copy import deepcopy
 
-class CAoneD(object):
-	def __init__(self, N, start, p, maxvel):
+class CAtwoD(object):
+	def __init__(self, N, M, start, pSlow, maxvel, pChange):
 		self.N = N
-		self.grid = np.zeros(N)
-		self.velocities = np.zeros(N)
-		self.p = p
+		self.M = M
+		self.grid = np.zeros((N,M))
+		self.velocities = np.zeros((N,M))
+		self.pSlow = pSlow
+		self.pChange = pChange
 		self.maxvel = maxvel
 		self.cars = len(start)
 		
@@ -20,7 +22,7 @@ class CAoneD(object):
 		
 		self.plotState = []
 		self.distances = []  # Grid distances
-
+			
 	def returnGrid(self):
 		'''
 		Function which returns the grid for plotting purposes. The coordinates
@@ -30,9 +32,7 @@ class CAoneD(object):
 		for i in range(self.N):
 			if self.grid[i] == True:
 				newGrid.append((i, 0))
-				
-			
-	
+
 		return newGrid
 	
 	def updateGrid(self):
@@ -41,45 +41,81 @@ class CAoneD(object):
 		using a basic Nagel-Schreckenberg model
 		'''
 		self.plotState = [] # Init the plotstate again
-		self.distances = []
-		
+		self.distances = [] # Init the distances again
+		self.laneChanges = {} # Keep track of the lane changes for the animation
+		self.lanes = set([])
 		 
-		newGrid, newVelocities = np.zeros(self.N), np.zeros(self.N)
+		newGrid, newVelocities = np.zeros((self.N, self.M)), np.zeros((self.N, self.M))
 		
+		# The logic below considers each lane as a separate 1D TCA. For 2D we first
+		# Consider the changes of lanes, and then the traffic flow continues
+		
+		for j in range(self.M):
+			for i in range(self.N):
+				# Say a vehicle changes lanes at random if the lane next to it
+				# has room (a vacant space) next to it
+				
+					
+				if self.grid[i,j] == True: # Car found
+					possShifts = []
+					if j - 1 >= 0:
+						if self.grid[i,j-1] == False:
+							possShifts.append(-1)
+					if j + 1 < self.M:
+						if self.grid[i,j+1] == False:
+							possShifts.append(1)
+							
+							
+					if len(possShifts) > 0 and np.random.rand() < self.pChange:
+						shift = np.random.choice(possShifts)
+						self.laneChanges[(i, j+shift)] = (i, j)  # Store the prev pos
+						self.lanes.add((i, j+shift)) # Hashes in set for speed
+						
+						self.velocities[i,j+shift] = self.velocities[i,j]
+						self.velocities[i,j] = 0
+						self.grid[i,j] = 0
+						self.grid[i, j+shift] = 1
+
 		# First increase speed with 1 if maxspeed has not been reached
-		for i in range(self.N):
-			if self.grid[i] == True and self.velocities[i] < self.maxvel:
-				self.velocities[i] += 1
+		for j in range(self.M):
+			for i in range(self.N):
+				if self.grid[i,j] == True and self.velocities[i,j] < self.maxvel:
+					self.velocities[i,j] += 1
 		
 		# Check if any cars in front are within maxspeed distance and slow down
-		for i in range(self.N):
-			for j in range(1, int(self.velocities[i]) + 1):
-				# Use modulo to implement periodic boundaries
-				if self.grid[(i+j) % self.N]:
-					self.velocities[i] = j - 1
-					break # Found a grid where a crash could occur
+		for k in range(self.M):
+			for i in range(self.N):
+				for j in range(1, int(self.velocities[i,k]) + 1):
+					# Use modulo to implement periodic boundaries
+					if self.grid[(i+j) % self.N, k]:
+						self.velocities[i, k] = j - 1
+						break # Found a grid where a crash could occur
 					
 		# Randomize speeds/slowdowns
-		
-		for i in range(self.N):
-			if np.random.rand() < self.p and self.grid[i] == True \
-													and self.velocities[i] > 0:
-				self.velocities[i] -= 1
+		for j in range(self.M):
+			for i in range(self.N):
+				if np.random.rand() < self.pSlow and self.grid[i,j] == True \
+														and self.velocities[i,j] > 0:
+					self.velocities[i,j] -= 1
 				
 		# Move the cars forward depending on their speed
-		
-		for i in range(self.N):
-			j = int(self.velocities[i])
-			temp = []  # temporary array
-			
-			if self.grid[i] == True:
-				temp.append((i, 0))
-				temp.append(((i+j) % self.N, 0))
+		for k in range(self.M):
+			for i in range(self.N):
+				j = int(self.velocities[i,k])
+				temp = []  # temporary array
 				
-				newGrid[(i+j) % self.N] = 1
-				newVelocities[(i+j) % self.N] = j
-				self.plotState.append(temp)
-				self.distances.append(j)
+				if self.grid[i,k] == True:
+					if (i,k) in self.lanes:
+						temp.append(self.laneChanges[(i, k)])
+					else:
+						temp.append((i, k))
+						
+					temp.append(((i+j) % self.N, k))
+					
+					newGrid[(i+j) % self.N,k] = 1
+					newVelocities[(i+j) % self.N,k] = j
+					self.plotState.append(temp)
+					self.distances.append(j)
 				
 
 		self.velocities = newVelocities
@@ -135,11 +171,16 @@ def animateDataGen(lim):
 										realSpacePoints[i][0][0] + realSpaceDistances[i], 
 										steps) % maxDist
 			yCoors = np.linspace(realSpacePoints[i][0][1], realSpacePoints[i][1][1], steps)
-			
+
 			xPoints.append(xCoors)
 			yPoints.append(yCoors)
+			if realSpacePoints[i][0][1] != realSpacePoints[i][1][1]:
+				print(realSpacePoints[i][0][1], realSpacePoints[i][1][1])
+			
 			
 		# Run through each of the coordinates and yield a list of x and y plot vals
+		
+#		print(yPoints)
 		
 		for i in range(steps-1):
 			xList, yList = [], []
@@ -168,28 +209,50 @@ def animate(i):
 
 def animate2(i):
 	thisx, thisy = next(dataGen)
+	ycoordinates.extend(thisy)
 	
 	line.set_data(thisx, thisy)
 	time_text.set_text(time_template.format(i))
 	
+	
 	return line, time_text
 
-
+def generateStart(N, M, num):
+	'''
+	Generates a list of tuples containing grid coordinates on which vehicles are
+	initialized
+	
+	@param N: Amount of discretizations in the x-direction
+	@param M: Amount of discretizations in the y-direction (lanes)
+	@param num: Amount of vehicles to generate. Must be <= N*M
+	'''
+	
+	start = set()  # Set to prevent duplicates
+	
+	while len(start) < num:
+		start.add((np.random.randint(0, N), np.random.randint(0, M)))
+		
+	return list(start)
 
 
 
 		
-N = 40 # Amount of cells needed for the CA
-xmin, xmax, ymin, ymax = 0, 10, -3, 3  # For plotting
+N, M = 40, 3 # Amount of cells needed for the CA
+xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
+# Starting cars
+
+#start = [(0,0), (2,0), (3,0), (6, 0), (5,1)]
+start = generateStart(N, M, 1)
 # Create a CA object
-test = CAoneD(N, (0, 10), 0.1, 5)
+test = CAtwoD(N, M, start, 0.1, 5, 0.3)
+ycoordinates = []
 
 # Find the translations for plotting the grid
-coors,dx,dy,trans = findCoors(N, 1, xmin, xmax, -0.25, 0.25)
+coors,dx,dy,trans = findCoors(N, M, xmin, xmax, ymin, ymax)
 
 # These are variables for the plotting stuff
-steps = 15
+steps = 24
 lim = 200
 dataGen = animateDataGen(lim)
 
@@ -200,6 +263,7 @@ animatie = True
 if animatie:
 	fig = plt.figure()
 	ax = fig.add_subplot(111, autoscale_on=False, xlim=(xmin, xmax), ylim=(ymin, ymax))
+
 	# Paint a background grid..
 	for i in coors:
 		ax.add_patch(
@@ -218,8 +282,9 @@ if animatie:
 	time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
 	plt.axis('equal')
 	
+	
 	ani = animation.FuncAnimation(fig, animate2, lim*(steps-1),
-										   interval=20, blit=True, init_func=init, repeat=False)
+										   interval=10, blit=True, init_func=init, repeat=False)
 	
 	plt.show()
 	
