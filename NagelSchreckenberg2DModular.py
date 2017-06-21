@@ -145,7 +145,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the lanechange would allow maintaining of increasing speed
-				if leftFrontGap > frontGap:
+				if leftFrontGap >= frontGap:
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -170,7 +170,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the lanechange would allow maintaining of increasing speed
-				if rightFrontGap > frontGap:
+				if rightFrontGap >= frontGap:
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -406,8 +406,8 @@ def animate2(i):
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 50, 3 # Amount of cells needed for the CA
-carnum = 149 # Number of cars to add to the CA
+N, M = 80, 2 # Amount of cells needed for the CA
+carnum = 40 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
@@ -426,7 +426,6 @@ lim = 2000
 
 
 animatie = True
-
 
 #def densityToSpeed(N, M, carnum, pSlow, pChange):
 #	
@@ -479,9 +478,10 @@ animatie = True
 #	
 #plt.figure()
 #
-#plt.title('N = {0}, M = {1} ='.format(N, M))
+#
 #
 #plt.subplot(121)
+#plt.title('N = {0}, M = {1} ='.format(N, M))
 #plt.plot(densities, speeds, label='pSlow = 0.1')
 #plt.plot(densities2, speeds2, label='pSlow = 0.4')
 #plt.plot(densities3, speeds3, label='pSlow = 0.7')
@@ -505,9 +505,9 @@ animatie = True
 #
 #plt.show()
 #	
-#
-#		
-#		
+
+		
+		
 	
 
 if animatie:
