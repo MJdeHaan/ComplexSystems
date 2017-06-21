@@ -74,6 +74,49 @@ class CAtwoD(object):
 				self.grid[i,j] = 0
 				self.grid[i, j+shift] = car.ID
 				
+	def changeCriteria(self, ID, lane):
+		'''
+		Function which finds the gap between the vehicle in front, behind, relative
+		velocities between the vehicles. This data should allow for the information
+		a car needs to decide between changing lanes
+		
+		@param ID: ID of the car we want to find the data for
+		@param lane: For which lane we want to estimate this (can be current or
+		neighbouring lanes)
+		'''
+		
+		currentCar = self.carIndex[ID]
+		i, j = currentCar.posCurrent
+		
+		
+		# Find the gap in front, and velocity of car in front if applicable
+		frontGap = self.maxvel  # init at max value road
+		frontVel = 0
+		for k in range(1, self.maxvel + 1):
+			print(i, (i+k) % self.N, self.grid[(i+k) % self.N, j])
+			if self.grid[(i+k) % self.N, j] != 0:  # Car is found
+				frontGap = k-1 
+				frontVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
+				break
+			
+		# Find the gap at back and the velocity if applicable
+		
+				# Find the gap in front
+		backGap = self.maxvel  # init at max value road
+		backVel = 0
+		for k in range(1, self.maxvel + 1):
+			print(i, (i-k) % self.N, self.grid[(i+k) % self.N, j])
+			if self.grid[(i-k) % self.N, j] != 0:  # Car is found
+				backGap = k-1 
+				backVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
+				break
+			
+	return frontGap, frontVel, backGap, backVel
+		
+		
+				
+		
+				
 	def laneChange2(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
@@ -273,8 +316,8 @@ def animate2(i):
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 80, 4 # Amount of cells needed for the CA
-carnum = 1 # Number of cars to add to the CA
+N, M = 30, 2 # Amount of cells needed for the CA
+carnum = 40 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
