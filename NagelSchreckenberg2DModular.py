@@ -47,7 +47,7 @@ class CAtwoD(object):
 		for car in start:
 			self.carIndex[car.ID] = deepcopy(car)  # Copy the car object according to id
 			self.grid[car.posCurrent] = car.ID  # Add the car id's on the grid
-						
+		self.fluxCounter = 0						
 	def laneChange(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
@@ -279,6 +279,8 @@ class CAtwoD(object):
 			# Update the grid
 			self.grid[posCurrent] = 0
 			self.grid[newPos] = car.ID
+			if (posCurrent[0] + car.v) >= N:
+				self.fluxCounter += 1
 			
 			# Update the position of the car object
 			car.posCurrent = newPos
@@ -392,7 +394,7 @@ def animate2(i):
 	ycoordinates.extend(thisy)
 	
 	line.set_data(thisx, thisy)
-	time_text.set_text(time_template.format(int(i/steps), i%steps))
+	time_text.set_text(time_template.format(int(i/steps), i%steps,test.fluxCounter))
 	
 	
 	return line, time_text
@@ -441,7 +443,7 @@ if animatie:
     )
 	
 	line, = ax.plot([], [], 'rs', markersize=xmax/(0.05*N))
-	time_template = 'timestep {0}, frame {1}'
+	time_template = 'timestep {0}, frame {1}, Counter {2}'
 	time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
 	plt.axis('equal')
 	
