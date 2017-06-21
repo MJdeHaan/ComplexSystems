@@ -47,9 +47,7 @@ class CAtwoD(object):
 		for car in start:
 			self.carIndex[car.ID] = deepcopy(car)  # Copy the car object according to id
 			self.grid[car.posCurrent] = car.ID  # Add the car id's on the grid
-			
-		self.fluxCounter = 0			
-			
+						
 	def laneChange(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
@@ -279,10 +277,6 @@ class CAtwoD(object):
 			self.grid[posCurrent] = 0
 			self.grid[newPos] = car.ID
 			
-			# The moment when a car passes the periodic boundary
-			if (posCurrent[0] + car.v) >= N:
-				self.fluxCounter += 1
-			
 			# Update the position of the car object
 			car.posCurrent = newPos
 		
@@ -300,11 +294,7 @@ class CAtwoD(object):
 		self.moveTimeStep()
 	
 	def returnAverageVelocity(self):
-		avSpeed = 0
-		
-		for car in self.carIndex.values():
-			avSpeed += car.v
-		return avSpeed/len(self.carIndex.keys())
+		return np.sum(self.velocities)/self.cars
 	
 	def returnPlotState(self):
 		plotState, distances = [], []
@@ -399,14 +389,14 @@ def animate2(i):
 	ycoordinates.extend(thisy)
 	
 	line.set_data(thisx, thisy)
-	time_text.set_text(time_template.format(int(i/steps), i%steps,test.fluxCounter))
+	time_text.set_text(time_template.format(int(i/steps), i%steps))
 	
 	
 	return line, time_text
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 30, 3 # Amount of cells needed for the CA
+N, M = 30, 2 # Amount of cells needed for the CA
 carnum = 40 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
@@ -419,6 +409,10 @@ ycoordinates = []
 
 # Find the translations for plotting the grid
 coors,dx,dy,trans = findCoors(N, M, xmin, xmax, ymin, ymax)
+
+
+
+
 
 # These are variables for the plotting stuff
 steps = 30
@@ -444,7 +438,7 @@ if animatie:
     )
 	
 	line, = ax.plot([], [], 'rs', markersize=xmax/(0.05*N))
-	time_template = 'timestep {0}, frame {1}, Counter {2}'
+	time_template = 'timestep {0}, frame {1}'
 	time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
 	plt.axis('equal')
 	
