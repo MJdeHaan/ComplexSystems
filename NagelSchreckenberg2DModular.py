@@ -47,39 +47,78 @@ class CAtwoD(object):
 		for car in start:
 			self.carIndex[car.ID] = deepcopy(car)  # Copy the car object according to id
 			self.grid[car.posCurrent] = car.ID  # Add the car id's on the grid
-		
+						
 	def laneChange(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
 		'''
-		for j in range(self.M):
-			for i in range(self.N):
-				# Say a vehicle changes lanes at random if the lane next to it
-				# has room (a vacant space) next to it
+		for car in self.carIndex.values():
+			i, j = car.posCurrent[0], car.posCurrent[1]
+			# Say a vehicle changes lanes at random if the lane next to it
+			# has room (a vacant space) next to it
+
+			possShifts = []
+			if j - 1 >= 0:
+				if self.grid[i,j-1] == False:
+					possShifts.append(-1)
+			if j + 1 < self.M:
+				if self.grid[i,j+1] == False:
+					possShifts.append(1)
+					
+			if len(possShifts) > 0 and np.random.rand() < self.pChange:
+				shift = np.random.choice(possShifts)
+			
+				car.posCurrent = (i, j+shift) # Change lane in car
 				
+				# Update the data in the grid
+				self.grid[i,j] = 0
+				self.grid[i, j+shift] = car.ID
+				
+	def laneChange2(self):
+		'''
+		The lane changing logic which is performed before the movement is executed
+		This one tries to only change lanes when it is desirable to do so
+		'''
+		for car in self.carIndex.values():
+			i, j = car.posCurrent[0], car.posCurrent[1]
+			# Check in either lanes that are possible if it is desirable to change
+			# lane, by checking if at least the current speed can be maintained
+			# If the current lane allows this, a lane change is not done
+			
+			possShifts = []
+			
+			# Left side logic
+			if j - 1 >= 0: # The lane actually exists
+				for k in range(0, car.v + 1):
+					if self.grid[(i+k) % self.N, j-1] == False:
+						break
 					
-				if self.grid[i,j] != 0: # Car found
-					ID = self.grid[i,j]  # Id of the car found
+				if k == car.v:
+					possShifts.append(-1)
 					
-					possShifts = []
-					if j - 1 >= 0:
-						if self.grid[i,j-1] == False:
-							possShifts.append(-1)
-					if j + 1 < self.M:
-						if self.grid[i,j+1] == False:
-							possShifts.append(1)
-							
-							
-					if len(possShifts) > 0 and np.random.rand() < self.pChange:
-						shift = np.random.choice(possShifts)
+			# Right side logic
+			if j + 1 < self.M:
+				for l in range(0, car.v + 1):
+					if self.grid[(i+l) % self.N, j+1] == False:
+						break
+				if l == car.v:
+					possShifts.append(1)
 					
-						self.carIndex[ID].posCurrent = (i, j+shift) # Change lane in car
+			# Check if there is enough space in front to maintain speed
+			for m in range(0, car.v+1):
+				if self.grid[(i+m) % self.N, j] == False:
+					break
+			
+			if len(possShifts) > 0 and np.random.rand() < self.pChange \
+					and m < car.v:
+				shift = np.random.choice(possShifts)
+			
+				car.posCurrent = (i, j+shift) # Change lane in car
+				
+				# Update the data in the grid
+				self.grid[i,j] = 0
+				self.grid[i, j+shift] = car.ID
 						
-						# Update the data in the grid
-						self.grid[i,j] = 0
-						self.grid[i, j+shift] = ID
-						
-		
 	def moveTimeStep(self):
 		''' 
 		Simulate the movement of each of the vehicles according to Nagel-Schrecken
@@ -212,7 +251,7 @@ def animateDataGen(lim):
 			yPoints.append(yCoors)
 
 		# Run through each of the coordinates and yield a list of x and y plot vals
-		for i in range(steps-1):
+		for i in range(steps - 1):
 			xList, yList = [], []
 			for j in range(len(vels)):
 				xList.append(xPoints[j][i])
@@ -234,15 +273,15 @@ def animate2(i):
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 40, 3 # Amount of cells needed for the CA
-carnum = 62 # Number of cars to add to the CA
+N, M = 80, 4 # Amount of cells needed for the CA
+carnum = 1 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
 start = generateStart(N, M, carnum)
 
 # Create a CA object
-test = CAtwoD(N, M, start, 0.1, 5, 0.3)
+test = CAtwoD(N, M, start, 0.1, 5, 1.0)
 ycoordinates = []
 
 # Find the translations for plotting the grid
@@ -250,7 +289,7 @@ coors,dx,dy,trans = findCoors(N, M, xmin, xmax, ymin, ymax)
 
 # These are variables for the plotting stuff
 steps = 30
-lim = 200
+lim = 2000
 dataGen = animateDataGen(lim)
 
 animatie = True
