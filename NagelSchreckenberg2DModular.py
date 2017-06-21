@@ -145,7 +145,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the lanechange would allow maintaining of increasing speed
-				if leftFrontGap >= frontGap:
+				if leftFrontGap > frontGap:
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -170,7 +170,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the lanechange would allow maintaining of increasing speed
-				if rightFrontGap >= frontGap:
+				if rightFrontGap > frontGap:
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -313,7 +313,7 @@ class CAtwoD(object):
 			distances.append(car.v)
 		return plotState, distances
 	
-def generateStart(N, M, num):
+def generateStart(N, M, num, maxV):
 	'''
 	Generates a list of tuples containing grid coordinates on which vehicles are
 	initialized
@@ -331,7 +331,7 @@ def generateStart(N, M, num):
 	cars = []
 	start = list(start)
 	for i in range(len(start)):
-		cars.append(Car(5,1,start[i], i+1))
+		cars.append(Car(maxV,1,start[i], i+1))
 		
 	return cars
 			
@@ -406,15 +406,15 @@ def animate2(i):
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 30, 3 # Amount of cells needed for the CA
-carnum = 40 # Number of cars to add to the CA
+N, M = 50, 3 # Amount of cells needed for the CA
+carnum = 149 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
-start = generateStart(N, M, carnum)
+start = generateStart(N, M, carnum, 5)
 
 # Create a CA object
-test = CAtwoD(N, M, start, 0.1, 5, 1.0)
+test = CAtwoD(N, M, start, 0.0, 5, 0.1)
 ycoordinates = []
 
 # Find the translations for plotting the grid
@@ -423,11 +423,95 @@ coors,dx,dy,trans = findCoors(N, M, xmin, xmax, ymin, ymax)
 # These are variables for the plotting stuff
 steps = 30
 lim = 2000
-dataGen = animateDataGen(lim)
+
 
 animatie = True
 
+
+#def densityToSpeed(N, M, carnum, pSlow, pChange):
+#	
+#	start = generateStart(N, M, carnum, 5)
+#	test = CAtwoD(N,M, start, pSlow, 5, pChange)
+#	speeds = []
+#	for i in range(3000):
+#		test.updateGrid()
+#		speeds.append(test.returnAverageVelocity())
+#		
+#	return np.array(speeds).mean(), test.fluxCounter/3000
+#
+#speeds, densities = [], []
+#avFlux = []
+#for i in range(1, N*M, 10):
+#	print(i)
+#	densities.append(i/(N*M))
+#	speed, flux = densityToSpeed(N,M, i, 0.1, 0.1) 
+#	speeds.append(speed)
+#	avFlux.append(flux)
+#	
+#speeds2, densities2 = [], []
+#avFlux2 = []
+#for i in range(1, N*M, 10):
+#	print(i)
+#	densities2.append(i/(N*M))
+#	speed, flux = densityToSpeed(N,M, i, 0.1, 0.4)
+#	speeds2.append(speed)
+#	avFlux2.append(flux)
+#	
+#speeds3, densities3 = [], []
+#avFlux3 = []
+#for i in range(1, N*M, 10):
+#	print(i)
+#	densities3.append(i/(N*M))
+#	speed, flux = densityToSpeed(N,M, i, 0.1, 0.7)
+#	speeds3.append(speed)
+#	avFlux3.append(flux)
+#	
+#	
+#speeds4, densities4 = [], []
+#avFlux4 = []
+#for i in range(1, N*M, 10):
+#	print(i)
+#	densities4.append(i/(N*M))
+#	speed, flux = densityToSpeed(N,M, i, 0.1, 1.0)
+#	speeds4.append(speed)
+#	avFlux4.append(flux)
+#	
+#	
+#plt.figure()
+#
+#plt.title('N = {0}, M = {1} ='.format(N, M))
+#
+#plt.subplot(121)
+#plt.plot(densities, speeds, label='pSlow = 0.1')
+#plt.plot(densities2, speeds2, label='pSlow = 0.4')
+#plt.plot(densities3, speeds3, label='pSlow = 0.7')
+#plt.plot(densities4, speeds4, label='pSlow = 1.0')
+#
+#plt.legend()
+#
+#plt.xlabel(r'$\rho$')
+#plt.ylabel(r'<$v$>')
+#
+#plt.subplot(122)
+#plt.plot(densities, avFlux, label='pSlow = 0.1')
+#plt.plot(densities2, avFlux2, label='pSlow = 0.4')
+#plt.plot(densities3, avFlux3, label='pSlow = 0.7')
+#plt.plot(densities4, avFlux4, label='pSlow = 1.0')
+#
+#plt.legend()
+#
+#plt.xlabel(r'$\rho$')
+#plt.ylabel(r'<flux>')
+#
+#plt.show()
+#	
+#
+#		
+#		
+	
+
 if animatie:
+	dataGen = animateDataGen(lim)
 	fig = plt.figure()
 	ax = fig.add_subplot(111, autoscale_on=False, xlim=(xmin, xmax), ylim=(ymin, ymax))
 
