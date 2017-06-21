@@ -86,14 +86,14 @@ class CAtwoD(object):
 		'''
 		
 		currentCar = self.carIndex[ID]
-		i, j = currentCar.posCurrent
+		i, j = currentCar.posCurrent[0], lane
 		
 		
 		# Find the gap in front, and velocity of car in front if applicable
 		frontGap = self.maxvel  # init at max value road
 		frontVel = 0
 		for k in range(1, self.maxvel + 1):
-			print(i, (i+k) % self.N, self.grid[(i+k) % self.N, j])
+
 			if self.grid[(i+k) % self.N, j] != 0:  # Car is found
 				frontGap = k-1 
 				frontVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
@@ -105,15 +105,97 @@ class CAtwoD(object):
 		backGap = self.maxvel  # init at max value road
 		backVel = 0
 		for k in range(1, self.maxvel + 1):
-			print(i, (i-k) % self.N, self.grid[(i+k) % self.N, j])
+
 			if self.grid[(i-k) % self.N, j] != 0:  # Car is found
 				backGap = k-1 
-				backVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
+				backVel = self.carIndex[self.grid[(i-k) % self.N, j]].v
 				break
 			
-	return frontGap, frontVel, backGap, backVel
+		return frontGap, frontVel, backGap, backVel
+
+
+
+
+	def laneChange3Mike(self):
+		'''
+		The lane changing logic which is performed before the movement is executed
+		This one tries to only change lanes when it is desirable to do so
+		'''
 		
+
 		
+		for car in self.carIndex.values():
+			i, j = car.posCurrent[0], car.posCurrent[1]
+			# Check in either lanes that are possible if it is desirable to change
+			# lane, by checking if at least the current speed can be maintained
+			# If the current lane allows this, a lane change is not done
+			
+			possShifts = [] # Store the shifts that might be done
+					
+			frontGap, frontVel, backGap, backVel = self.changeCriteria(car.ID, j)
+			
+			# All logic for the left lane resides here
+			if j - 1 >= 0: # The left lane actually exists
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel = self.changeCriteria(car.ID, j-1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j-1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the lanechange would allow maintaining of increasing speed
+				if leftFrontGap >= frontGap:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+				# Check if the car on the other lane would need to brake hard..
+				if leftBackGap - leftBackVel >= -1: # arbitrare limit..
+					switchSafe = True 
+				else:
+					switchSafe = False
+					
+				if switchPos and switchAdvantage and switchSafe:
+					possShifts.append(-1)
+					
+			# Right side logic
+			if j + 1 < self.M : # The right lane actually exists
+				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel = self.changeCriteria(car.ID, j+1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j+1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the lanechange would allow maintaining of increasing speed
+				if rightFrontGap >= frontGap:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+				# Check if the car on the other lane would need to brake hard..
+				if rightBackGap - rightBackVel >= -1: # arbitrare limit..
+					switchSafe = True 
+				else:
+					switchSafe = False
+					
+				if switchPos and switchAdvantage and switchSafe:
+					possShifts.append(1)
+					
+			print(j, possShifts)
+					
+			# Logic regarding actually doing the lane change resides here
+			if len(possShifts) > 0 and np.random.rand() < self.pChange:
+				shift = np.random.choice(possShifts)
+				car.posCurrent = (i, j+shift) # Change lane in car
+				
+				# Update the data in the grid
+				self.grid[i,j] = 0
+				self.grid[i, j+shift] = car.ID
+			
+
 				
 		
 				
@@ -129,6 +211,7 @@ class CAtwoD(object):
 			# If the current lane allows this, a lane change is not done
 			
 			possShifts = []
+			
 			
 			# Left side logic
 			if j - 1 >= 0: # The lane actually exists
@@ -210,7 +293,7 @@ class CAtwoD(object):
 		for i in self.carIndex.keys():
 			self.carIndex[i].posPrevious = self.carIndex[i].posCurrent
 			
-		self.laneChange()
+		self.laneChange3Mike()
 		self.moveTimeStep()
 	
 	def returnAverageVelocity(self):
@@ -316,7 +399,7 @@ def animate2(i):
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 30, 2 # Amount of cells needed for the CA
+N, M = 30, 3 # Amount of cells needed for the CA
 carnum = 40 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
@@ -329,6 +412,10 @@ ycoordinates = []
 
 # Find the translations for plotting the grid
 coors,dx,dy,trans = findCoors(N, M, xmin, xmax, ymin, ymax)
+
+
+
+
 
 # These are variables for the plotting stuff
 steps = 30
