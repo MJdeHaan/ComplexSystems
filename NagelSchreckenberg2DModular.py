@@ -299,7 +299,11 @@ class CAtwoD(object):
 		self.moveTimeStep()
 	
 	def returnAverageVelocity(self):
-		return np.sum(self.velocities)/self.cars
+		avSpeed = 0
+		
+		for car in self.carIndex.values():
+			avSpeed += car.v
+		return avSpeed/len(self.carIndex.keys())
 	
 	def returnPlotState(self):
 		plotState, distances = [], []
