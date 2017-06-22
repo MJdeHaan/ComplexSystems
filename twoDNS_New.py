@@ -3,6 +3,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as patches
+import itertools
 
 
 ################################## Stuff for the model  #######################
@@ -47,7 +48,7 @@ class CAtwoD(object):
 			self.carIndex[car.ID] = deepcopy(car)  # Copy the car object according to id
 			self.grid[car.posCurrent] = car.ID  # Add the car id's on the grid
 			
-		self.fluxCounter = 0			
+		self.fluxCounter = 0  # Can be used to measure congestion.	
 
 	def changeCriteria(self, ID, lane):
 		'''
@@ -258,6 +259,9 @@ class CAtwoD(object):
 		self.moveTimeStep()
 	
 	def returnAverageVelocity(self):
+		'''
+		Return the average velocity at some timestep over all the vehicles
+		'''
 		avSpeed = 0
 		
 		for car in self.carIndex.values():
@@ -265,11 +269,36 @@ class CAtwoD(object):
 		return avSpeed/len(self.carIndex.keys())
 	
 	def returnPlotState(self):
+		'''
+		Returns the previous and current position of the car as well as the speeds
+		which can be used for the animation.
+		'''
 		plotState, distances = [], []
 		for car in self.carIndex.values():
 			plotState.append((car.posPrevious, car.posCurrent))
 			distances.append(car.v)
 		return plotState, distances
+	
+	def returnJamStatistics(self):
+		'''
+		Define a traffic jam as a group of vehicles in the vicinity of each other
+		which have a speed of
+		'''
+		
+		jamLengths = []
+		for j in range(self.M):
+			lane = list(np.greater(self.grid[:,j], 0))
+			jamLane = [ sum( 1 for _ in group ) for key, group in itertools.groupby( lane ) if key ]
+			for i in jamLane:
+				if i == 1:
+					continue
+				else:
+					jamLengths.append(i)
+					
+		return jamLengths
+
+				
+	
 	
 def generateStart(N, M, num, maxV):
 	'''
@@ -299,19 +328,22 @@ Executing an instance of the CA
 __________________________________
 '''
 # Parameters
-N, M = 80, 2 # Amount of cells needed for the CA
-carnum = 30 # Number of cars to add to the CA
+N, M = 40, 2 # Amount of cells needed for the CA
+carnum = 60 # Number of cars to add to the CA
 pSlow = 0.1
 maxVel = 5
-pChange = 0.4
-strategy = 'mike' # random, mike
+pChange = 0.5
+strategy = 'random' # random, mike
 animatie = True
 
 # Starting cars
 start = generateStart(N, M, carnum, maxVel)
 
+
 # Create a CA object
 test = CAtwoD(N, M, start, pSlow, maxVel, pChange, strategy)
+
+
 	
 if animatie == False:
 	# Show results
@@ -339,7 +371,7 @@ def findCoors(N, M, xmin, xmax, ymin, ymax ):
     coors = []
     trans = {}
     for i in zip(np.linspace(xmin, xmax, N), range(N)):
-        for j in zip(np.linspace(ymin, ymax, M), range(M)):
+        for j in zip(np.linspace(ymax, ymin, M), range(M)):
             coors.append((i[0], j[0]))
             trans[(i[1], j[1])] = (i[0] + dx/2, j[0] + dy/2)
             
