@@ -258,11 +258,12 @@ class CAtwoD(object):
 				
 		# Check if any cars in front are within maxspeed distance and slow down
 		for car in self.carIndex.values():
-			
-			for j in range(1, car.v + 1):
-				if self.grid[(car.posCurrent[0] + j) % self.N, car.posCurrent[1]]:
-					car.v = j-1  # Reduce speed so a crash is prevented
-					break # No need to check other squares further in front
+			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
+			gapfrontleft = N*N
+			if car.posCurrent[1] - 1 >= 0:
+				gapfrontleft = self.changeCriteria(car.ID,car.posCurrent[1] - 1)[0]
+			if car.v > min(gapfront,gapfrontleft + 1):
+				car.v = min(gapfront,gapfrontleft +1)
 					
 		# Randomize speeds/slowdowns
 		for car in self.carIndex.values():
@@ -345,7 +346,7 @@ def findCoors(N, M, xmin, xmax, ymin, ymax ):
     coors = []
     trans = {}
     for i in zip(np.linspace(xmin, xmax, N), range(N)):
-        for j in zip(np.linspace(ymin, ymax, M), range(M)):
+        for j in zip(np.linspace(ymax, ymin, M), range(M)):
             coors.append((i[0], j[0]))
             trans[(i[1], j[1])] = (i[0] + dx/2, j[0] + dy/2)
             
@@ -406,8 +407,8 @@ def animate2(i):
 
 
 ################################# Executing of an instance of the CA #########
-N, M = 80, 2 # Amount of cells needed for the CA
-carnum = 40 # Number of cars to add to the CA
+N, M = 80, 3 # Amount of cells needed for the CA
+carnum = 25 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
@@ -415,6 +416,9 @@ start = generateStart(N, M, carnum, 5)
 
 # Create a CA object
 test = CAtwoD(N, M, start, 0.0, 5, 0.1)
+#car1 = Car(15,1,(15,1),5)
+#car2 = Car(5,1,(0,0),6)
+#test = CAtwoD(N, M, [car1,car2], 0.0, 50, 0)
 ycoordinates = []
 
 # Find the translations for plotting the grid
