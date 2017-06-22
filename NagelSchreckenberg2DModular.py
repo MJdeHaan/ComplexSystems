@@ -49,6 +49,49 @@ class CAtwoD(object):
 			self.grid[car.posCurrent] = car.ID  # Add the car id's on the grid
 			
 		self.fluxCounter = 0			
+
+	def changeCriteria(self, ID, lane):
+		'''
+		Function which finds the gap between the vehicle in front, behind, relative
+		velocities between the vehicles. This data should allow for the information
+		a car needs to decide between changing lanes
+		
+		@param ID: ID of the car we want to find the data for
+		@param lane: For which lane we want to estimate this (can be current or
+		neighbouring lanes)
+		'''
+		
+		currentCar = self.carIndex[ID]
+		i, j = currentCar.posCurrent[0], lane
+		
+		
+		# Find the gap in front, and velocity of car in front if applicable
+		frontGap = self.maxvel  # init at max value road
+		frontVel = 0
+		frontCar = currentCar
+		for k in range(1, self.maxvel + 1):
+
+			if self.grid[(i+k) % self.N, j] != 0:  # Car is found
+				frontGap = k-1 
+				frontVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
+				frontCar = self.carIndex[self.grid[(i+k) % self.N, j]]
+				break
+			
+		# Find the gap at back and the velocity if applicable
+		
+				# Find the gap in front
+		backGap = self.maxvel  # init at max value road
+		backVel = 0
+		backCar = currentCar
+		for k in range(1, self.maxvel + 1):
+
+			if self.grid[(i-k) % self.N, j] != 0:  # Car is found
+				backGap = k-1 
+				backVel = self.carIndex[self.grid[(i-k) % self.N, j]].v
+				backCar = self.carIndex[self.grid[(i-k) % self.N, j]]  
+				break
+			
+		return frontGap, frontVel, backGap, backVel, frontCar, backCar
 			
 	def laneChange(self):
 		'''
@@ -76,44 +119,6 @@ class CAtwoD(object):
 				self.grid[i,j] = 0
 				self.grid[i, j+shift] = car.ID
 				
-	def changeCriteria(self, ID, lane):
-		'''
-		Function which finds the gap between the vehicle in front, behind, relative
-		velocities between the vehicles. This data should allow for the information
-		a car needs to decide between changing lanes
-		
-		@param ID: ID of the car we want to find the data for
-		@param lane: For which lane we want to estimate this (can be current or
-		neighbouring lanes)
-		'''
-		
-		currentCar = self.carIndex[ID]
-		i, j = currentCar.posCurrent[0], lane
-		
-		
-		# Find the gap in front, and velocity of car in front if applicable
-		frontGap = self.maxvel  # init at max value road
-		frontVel = 0
-		for k in range(1, self.maxvel + 1):
-
-			if self.grid[(i+k) % self.N, j] != 0:  # Car is found
-				frontGap = k-1 
-				frontVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
-				break
-			
-		# Find the gap at back and the velocity if applicable
-		
-				# Find the gap in front
-		backGap = self.maxvel  # init at max value road
-		backVel = 0
-		for k in range(1, self.maxvel + 1):
-
-			if self.grid[(i-k) % self.N, j] != 0:  # Car is found
-				backGap = k-1 
-				backVel = self.carIndex[self.grid[(i-k) % self.N, j]].v
-				break
-			
-		return frontGap, frontVel, backGap, backVel
 
 
 
@@ -195,55 +200,80 @@ class CAtwoD(object):
 				self.grid[i, j+shift] = car.ID
 			
 
-				
-		
+						
 				
 	def laneChange2(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
 		This one tries to only change lanes when it is desirable to do so
 		'''
+
 		for car in self.carIndex.values():
 			i, j = car.posCurrent[0], car.posCurrent[1]
 			# Check in either lanes that are possible if it is desirable to change
 			# lane, by checking if at least the current speed can be maintained
 			# If the current lane allows this, a lane change is not done
 			
-			possShifts = []
-			
-			
-			# Left side logic
-			if j - 1 >= 0: # The lane actually exists
-				for k in range(0, car.v + 1):
-					if self.grid[(i+k) % self.N, j-1] == False:
-						break
+			possShifts = [] # Store the shifts that might be done
 					
-				if k == car.v:
+			frontGap, frontVel, backGap, backVel, frontCar, backCar = self.changeCriteria(car.ID, j)
+				
+			# All logic for the left lane resides here
+			if j - 1 >= 0: # The left lane actually exists
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftfrontCar, leftbackCar = self.changeCriteria(car.ID, j-1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j-1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the lanechange would allow maintaining of increasing speed
+				if leftFrontGap > frontGap and car.v > frontCar.v and frontCar.v < leftfrontCar.v:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+				if switchPos and switchAdvantage:
 					possShifts.append(-1)
 					
 			# Right side logic
-			if j + 1 < self.M:
-				for l in range(0, car.v + 1):
-					if self.grid[(i+l) % self.N, j+1] == False:
-						break
-				if l == car.v:
+			if j + 1 < self.M : # The right lane actually exists
+				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel, rightFrontCar, rightbackCar = self.changeCriteria(car.ID, j+1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j+1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the car in the back would pas if not switch
+				if car.v <= frontCar.v and car.v <= rightFrontCar.v and rightFrontGap >= frontGap:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+					
+				if switchPos and switchAdvantage:
 					possShifts.append(1)
 					
-			# Check if there is enough space in front to maintain speed
-			for m in range(0, car.v+1):
-				if self.grid[(i+m) % self.N, j] == False:
-					break
-			
-			if len(possShifts) > 0 and np.random.rand() < self.pChange \
-					and m < car.v:
-				shift = np.random.choice(possShifts)
-			
+					
+			# Logic regarding actually doing the lane change resides here
+			if len(possShifts) > 0 and np.random.rand() < self.pChange:
+				if 1 in possShifts:
+					shift = 1
+				else:
+					shift = -1
 				car.posCurrent = (i, j+shift) # Change lane in car
 				
 				# Update the data in the grid
 				self.grid[i,j] = 0
 				self.grid[i, j+shift] = car.ID
-						
+			
+
+				
+		
+				
 	def moveTimeStep(self):
 		''' 
 		Simulate the movement of each of the vehicles according to Nagel-Schrecken
@@ -266,10 +296,10 @@ class CAtwoD(object):
 				car.v = min(gapfront,gapfrontleft +1)
 				
 		# Check if any cars in front are within maxspeed distance and slow down American
-#		for car in self.carIndex.values():
-#			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
-#			if car.v > gapfront:
-#				car.v = gapfront
+		for car in self.carIndex.values():
+			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
+			if car.v > gapfront:
+				car.v = gapfront
 					
 		# Randomize speeds/slowdowns
 		for car in self.carIndex.values():
@@ -303,7 +333,7 @@ class CAtwoD(object):
 		for i in self.carIndex.keys():
 			self.carIndex[i].posPrevious = self.carIndex[i].posCurrent
 			
-		self.laneChange3Mike()
+		self.laneChange2()
 		self.moveTimeStep()
 	
 	def returnAverageVelocity(self):
@@ -414,7 +444,7 @@ def animate2(i):
 
 ################################# Executing of an instance of the CA #########
 N, M = 80, 3 # Amount of cells needed for the CA
-carnum = 25 # Number of cars to add to the CA
+carnum = 60 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
