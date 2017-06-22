@@ -256,7 +256,7 @@ class CAtwoD(object):
 			if car.v < car.vMax:
 				car.v += 1
 				
-		# Check if any cars in front are within maxspeed distance and slow down
+		# Check if any cars in front are within maxspeed distance and slow down European
 		for car in self.carIndex.values():
 			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
 			gapfrontleft = N*N
@@ -264,6 +264,12 @@ class CAtwoD(object):
 				gapfrontleft = self.changeCriteria(car.ID,car.posCurrent[1] - 1)[0]
 			if car.v > min(gapfront,gapfrontleft + 1):
 				car.v = min(gapfront,gapfrontleft +1)
+				
+		# Check if any cars in front are within maxspeed distance and slow down American
+#		for car in self.carIndex.values():
+#			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
+#			if car.v > gapfront:
+#				car.v = gapfront
 					
 		# Randomize speeds/slowdowns
 		for car in self.carIndex.values():
