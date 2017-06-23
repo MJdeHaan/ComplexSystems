@@ -92,7 +92,35 @@ class CAtwoD(object):
 				break
 			
 		return frontGap, frontVel, backGap, backVel, frontCar, backCar
+
+	def jamLane(self, numLanes):
+		'''
+		Function which finds returns a list of booleans, most left at start
+		most right at end.
+		
+		@param numLanes: The amount of lanes
+		@param cars: the dictionary of cars in grid
+		'''			
+		carsPerlane = []
+		for i in range(numLanes):
+			carspeedList = []
+			for car in self.carIndex.values():
+				if car.posCurrent[1] == i:
+					carspeedList.append(car.v)
+			carsPerlane.append(carspeedList)
 			
+		TrafficJam = []
+		for i in range(numLanes):
+			TrafficJam.append(False)
+			
+		for i in range(len(carsPerlane)):
+			if len(carsPerlane[i]) > 0:
+				if max(carsPerlane[i])<= 0.4*self.maxvel:
+					TrafficJam[i] = True
+		return TrafficJam
+			
+			
+				
 	def laneChange(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
@@ -220,7 +248,7 @@ class CAtwoD(object):
 				
 			# All logic for the left lane resides here
 			if j - 1 >= 0: # The left lane actually exists
-				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftfrontCar, leftbackCar = self.changeCriteria(car.ID, j-1)
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftFrontCar, leftBackCar = self.changeCriteria(car.ID, j-1)
 				
 				# Check if the position in the other lane is free
 				if self.grid[i, j-1] == 0:
@@ -229,7 +257,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the lanechange would allow maintaining of increasing speed
-				if leftFrontGap > frontGap and car.v > frontCar.v and frontCar.v < leftfrontCar.v:
+				if car.v >= frontCar.v and frontCar.v < leftFrontCar.v :
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -239,7 +267,7 @@ class CAtwoD(object):
 					
 			# Right side logic
 			if j + 1 < self.M : # The right lane actually exists
-				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel, rightFrontCar, rightbackCar = self.changeCriteria(car.ID, j+1)
+				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel, rightFrontCar, rightBackCar = self.changeCriteria(car.ID, j+1)
 				
 				# Check if the position in the other lane is free
 				if self.grid[i, j+1] == 0:
@@ -248,7 +276,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the car in the back would pas if not switch
-				if car.v <= frontCar.v and car.v <= rightFrontCar.v and rightFrontGap >= frontGap:
+				if car.v <= frontCar.v and car.v <= rightFrontCar.v:
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -288,12 +316,15 @@ class CAtwoD(object):
 				
 		# Check if any cars in front are within maxspeed distance and slow down European
 		for car in self.carIndex.values():
-			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
-			gapfrontleft = N*N
+			frontGap, frontVel, backGap, backVel, frontCar, backCar = self.changeCriteria(car.ID, car.posCurrent[1])
 			if car.posCurrent[1] - 1 >= 0:
-				gapfrontleft = self.changeCriteria(car.ID,car.posCurrent[1] - 1)[0]
-			if car.v > min(gapfront,gapfrontleft + 1):
-				car.v = min(gapfront,gapfrontleft +1)
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftFrontCar, leftBackCar = self.changeCriteria(car.ID, car.posCurrent[1] - 1)
+				if self.jamLane(self.M)[car.posCurrent[1] - 1]:
+					if car.v > frontGap:
+						car.v = frontGap
+				else:
+					if car.v > min(frontGap,leftFrontGap + 1):
+						car.v = min(frontGap,leftFrontGap +1)			
 				
 		# Check if any cars in front are within maxspeed distance and slow down American
 		for car in self.carIndex.values():
@@ -436,7 +467,7 @@ def animate2(i):
 	ycoordinates.extend(thisy)
 	
 	line.set_data(thisx, thisy)
-	time_text.set_text(time_template.format(int(i/steps), i%steps,test.fluxCounter))
+	time_text.set_text(time_template.format(int(i/steps), i%steps,test.fluxCounter,test.jamLane(M)))
 	
 	
 	return line, time_text
@@ -444,15 +475,15 @@ def animate2(i):
 
 ################################# Executing of an instance of the CA #########
 N, M = 80, 3 # Amount of cells needed for the CA
-carnum = 60 # Number of cars to add to the CA
+carnum = 40 # Number of cars to add to the CA
 xmin, xmax, ymin, ymax = 0, 10, -0.5, 0.5  # For plotting
 
 # Starting cars
 start = generateStart(N, M, carnum, 5)
 
 # Create a CA object
-test = CAtwoD(N, M, start, 0.0, 5, 0.1)
-#car1 = Car(15,1,(15,1),5)
+test = CAtwoD(N, M, start, 0.0, 10, 0.1)
+car1 = Car(15,1,(15,1),5)
 #car2 = Car(5,1,(0,0),6)
 #test = CAtwoD(N, M, [car1,car2], 0.0, 50, 0)
 ycoordinates = []
@@ -568,7 +599,7 @@ if animatie:
     )
 	
 	line, = ax.plot([], [], 'rs', markersize=xmax/(0.05*N))
-	time_template = 'timestep {0}, frame {1}, Counter {2}'
+	time_template = 'timestep {0}, frame {1}, counter {2}, trafficjam {3}'
 	time_text = ax.text(0.05, 0.9, '', transform=ax.transAxes)
 	plt.axis('equal')
 	
