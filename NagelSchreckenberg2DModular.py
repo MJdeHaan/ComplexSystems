@@ -261,8 +261,14 @@ class CAtwoD(object):
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
+
+				# Check if the car on the other lane would need to brake hard..
+				if leftBackGap - leftBackVel >= -1: # arbitrare limit..
+					switchSafe = True 
+				else:
+					switchSafe = False
 					
-				if switchPos and switchAdvantage:
+				if switchPos and switchAdvantage and switchSafe:
 					possShifts.append(-1)
 					
 			# Right side logic
@@ -280,7 +286,6 @@ class CAtwoD(object):
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
-					
 					
 				if switchPos and switchAdvantage:
 					possShifts.append(1)
