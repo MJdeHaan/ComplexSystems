@@ -8,7 +8,7 @@ import itertools
 
 ################################## Stuff for the model  #######################
 class Car(object):
-	def __init__(self, vMax, vIn, pos, ID):
+	def __init__(self, vMax, vIn, pos, ID, pLaneChange):
 		'''
 		A simple car object which holds the properties for each individual 'state'
 		
@@ -22,6 +22,7 @@ class Car(object):
 		self.posCurrent = pos # Most recent position at timestep i
 		self.posPrevious = pos  # Position at timestep i-1 for animation purposes
 		self.ID = ID  # Id of the car on the grid
+		self.pLaneChange = pLaneChange  # Probability of this car performing lane changes
 
 class CAtwoD(object):
 	def __init__(self, N, M, start, pSlow, maxvel, pChange, strategy):
@@ -88,6 +89,75 @@ class CAtwoD(object):
 				break
 			
 		return frontGap, frontVel, backGap, backVel
+	
+	def changeCriteriaEuro(self, ID, lane):
+		'''
+		Function which finds the gap between the vehicle in front, behind, relative
+		velocities between the vehicles. This data should allow for the information
+		a car needs to decide between changing lanes
+		
+		@param ID: ID of the car we want to find the data for
+		@param lane: For which lane we want to estimate this (can be current or
+		neighbouring lanes)
+		'''
+		
+		currentCar = self.carIndex[ID]
+		i, j = currentCar.posCurrent[0], lane
+		
+		
+		# Find the gap in front, and velocity of car in front if applicable
+		frontGap = self.maxvel  # init at max value road
+		frontVel = 0
+		frontCar = currentCar
+		for k in range(1, self.maxvel + 1):
+
+			if self.grid[(i+k) % self.N, j] != 0:  # Car is found
+				frontGap = k-1 
+				frontVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
+				frontCar = self.carIndex[self.grid[(i+k) % self.N, j]]
+				break
+			
+		# Find the gap at back and the velocity if applicable
+		
+				# Find the gap in front
+		backGap = self.maxvel  # init at max value road
+		backVel = 0
+		backCar = currentCar
+		for k in range(1, self.maxvel + 1):
+
+			if self.grid[(i-k) % self.N, j] != 0:  # Car is found
+				backGap = k-1 
+				backVel = self.carIndex[self.grid[(i-k) % self.N, j]].v
+				backCar = self.carIndex[self.grid[(i-k) % self.N, j]]  
+				break
+			
+		return frontGap, frontVel, backGap, backVel, frontCar, backCar
+	
+	def jamLane(self, numLanes):
+		'''
+		Function which finds returns a list of booleans, most left at start
+		most right at end.
+		
+		@param numLanes: The amount of lanes
+		@param cars: the dictionary of cars in grid
+		'''			
+		carsPerlane = []
+		for i in range(numLanes):
+			carspeedList = []
+			for car in self.carIndex.values():
+				if car.posCurrent[1] == i:
+					carspeedList.append(car.v)
+			carsPerlane.append(carspeedList)
+			
+		TrafficJam = []
+		for i in range(numLanes):
+			TrafficJam.append(False)
+			
+		for i in range(len(carsPerlane)):
+			if len(carsPerlane[i]) > 0:
+				if max(carsPerlane[i])<= 0.4*self.maxvel:
+					TrafficJam[i] = True
+		return TrafficJam
 
 			
 	def laneChangeRandom(self):
@@ -107,7 +177,7 @@ class CAtwoD(object):
 				if self.grid[i,j+1] == False:
 					possShifts.append(1)
 					
-			if len(possShifts) > 0 and np.random.rand() < self.pChange:
+			if len(possShifts) > 0 and np.random.rand() < car.pLaneChange:
 				shift = np.random.choice(possShifts)
 			
 				car.posCurrent = (i, j+shift) # Change lane in car
@@ -117,7 +187,7 @@ class CAtwoD(object):
 				self.grid[i, j+shift] = car.ID
 				
 
-	def laneChangeMike(self):
+	def laneChangeSymmetric(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
 		This one tries to only change lanes when it is desirable to do so
@@ -185,8 +255,81 @@ class CAtwoD(object):
 					
 					
 			# Logic regarding actually doing the lane change resides here
-			if len(possShifts) > 0 and np.random.rand() < self.pChange:
+			if len(possShifts) > 0 and np.random.rand() < car.pLaneChange:
 				shift = np.random.choice(possShifts)
+				car.posCurrent = (i, j+shift) # Change lane in car
+				
+				# Update the data in the grid
+				self.grid[i,j] = 0
+				self.grid[i, j+shift] = car.ID
+				
+	def laneChangeEuro(self):
+		'''
+		The lane changing logic which is performed before the movement is executed
+		This one tries to only change lanes when it is desirable to do so
+		'''
+
+		for car in self.carIndex.values():
+			i, j = car.posCurrent[0], car.posCurrent[1]
+			# Check in either lanes that are possible if it is desirable to change
+			# lane, by checking if at least the current speed can be maintained
+			# If the current lane allows this, a lane change is not done
+			
+			possShifts = [] # Store the shifts that might be done
+					
+			frontGap, frontVel, backGap, backVel, frontCar, backCar = self.changeCriteriaEuro(car.ID, j)
+				
+			# All logic for the left lane resides here
+			if j - 1 >= 0: # The left lane actually exists
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftFrontCar, leftBackCar = self.changeCriteriaEuro(car.ID, j-1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j-1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the lanechange would allow maintaining of increasing speed
+				if car.v >= frontCar.v and frontCar.v < leftFrontCar.v :
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+
+				# Check if the car on the other lane would need to brake hard..
+				if leftBackGap - leftBackVel >= -1: # arbitrare limit..
+					switchSafe = True 
+				else:
+					switchSafe = False
+					
+				if switchPos and switchAdvantage and switchSafe:
+					possShifts.append(-1)
+					
+			# Right side logic
+			if j + 1 < self.M : # The right lane actually exists
+				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel, rightFrontCar, rightBackCar = self.changeCriteriaEuro(car.ID, j+1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j+1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the car in the back would pas if not switch
+				if car.v <= frontCar.v and car.v <= rightFrontCar.v:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+				if switchPos and switchAdvantage:
+					possShifts.append(1)
+					
+					
+			# Logic regarding actually doing the lane change resides here
+			if len(possShifts) > 0 and np.random.rand() < car.pLaneChange:
+				if 1 in possShifts:
+					shift = 1
+				else:
+					shift = -1
 				car.posCurrent = (i, j+shift) # Change lane in car
 				
 				# Update the data in the grid
@@ -235,6 +378,60 @@ class CAtwoD(object):
 			self.grid[newPos] = car.ID
 			
 			# The moment when a car passes the periodic boundary
+			if (posCurrent[0] + car.v) >= self.N:
+				self.fluxCounter += 1
+			
+			# Update the position of the car object
+			car.posCurrent = newPos
+			
+	def moveTimeStepEuro(self):
+		''' 
+		Simulate the movement of each of the vehicles according to Nagel-Schrecken
+		Uses the European rule of not passing traffic in the lane left to the
+		current one
+		'''
+
+		# First increase speed with 1 if maxspeed has not been reached
+		# All these functions use the positions of the car objects and reference
+		# the grid for finding id and updating the position in the grid
+		for car in self.carIndex.values():  
+			if car.v < car.vMax:
+				car.v += 1
+				
+		# Check if any cars in front are within maxspeed distance and slow down European
+		for car in self.carIndex.values():
+			frontGap, frontVel, backGap, backVel, frontCar, backCar = self.changeCriteriaEuro(car.ID, car.posCurrent[1])
+			if car.posCurrent[1] - 1 >= 0:
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftFrontCar, leftBackCar = self.changeCriteriaEuro(car.ID, car.posCurrent[1] - 1)
+				if self.jamLane(self.M)[car.posCurrent[1] - 1]:
+					if car.v > frontGap:
+						car.v = frontGap
+				else:
+					if car.v > min(frontGap,leftFrontGap + 1):
+						car.v = min(frontGap,leftFrontGap +1)			
+				
+		# Check if any cars in front are within maxspeed distance and slow down American
+		for car in self.carIndex.values():
+			gapfront = self.changeCriteria(car.ID,car.posCurrent[1])[0]
+			if car.v > gapfront:
+				car.v = gapfront
+					
+		# Randomize speeds/slowdowns
+		for car in self.carIndex.values():
+			if np.random.rand() < self.pSlow and car.v > 0:
+				car.v  -= 1
+			
+		# Move the cars forward depending on their speed
+		for car in self.carIndex.values():
+			# Generate the new position of this car
+			posCurrent = car.posCurrent
+			newPos = ((posCurrent[0] + car.v) % self.N, posCurrent[1])
+			
+			# Update the grid
+			self.grid[posCurrent] = 0
+			self.grid[newPos] = car.ID
+			
+			# The moment when a car passes the periodic boundary
 			if (posCurrent[0] + car.v) >= N:
 				self.fluxCounter += 1
 			
@@ -253,10 +450,15 @@ class CAtwoD(object):
 				
 		if self.strategy == 'random':
 			self.laneChangeRandom()
-		elif self.strategy == 'mike':
-			self.laneChangeMike()
+		elif self.strategy == 'symmetric':
+			self.laneChangeSymmetric()
+		elif self.strategy == 'euro':
+			self.laneChangeEuro()
 			
-		self.moveTimeStep()
+		if self.strategy == 'random' or self.strategy == 'symmetric':
+			self.moveTimeStep()
+		elif self.strategy == 'euro':
+			self.moveTimeStepEuro()
 	
 	def returnAverageVelocity(self):
 		'''
@@ -300,7 +502,7 @@ class CAtwoD(object):
 				
 	
 	
-def generateStart(N, M, num, maxV):
+def generateStart(N, M, num, maxV, laneProbs):
 	'''
 	Generates a list of tuples containing grid coordinates on which vehicles are
 	initialized
@@ -308,6 +510,8 @@ def generateStart(N, M, num, maxV):
 	@param N: Amount of discretizations in the x-direction
 	@param M: Amount of discretizations in the y-direction (lanes)
 	@param num: Amount of vehicles to generate. Must be <= N*M
+	@param maxV: Maximum speed of the agents
+	@param laneProbs: Probabilities of lane changing for agents (array with len num)
 	'''
 	
 	start = set()  # Set to prevent duplicates
@@ -318,8 +522,7 @@ def generateStart(N, M, num, maxV):
 	cars = []
 	start = list(start)
 	for i in range(len(start)):
-		cars.append(Car(maxV,1,start[i], i+1))
-		
+		cars.append(Car(maxV,1,start[i], i+1, laneProbs[i]))
 	return cars
 
 '''
@@ -329,15 +532,15 @@ __________________________________
 '''
 # Parameters
 N, M = 40, 2 # Amount of cells needed for the CA
-carnum = 60 # Number of cars to add to the CA
+carnum = 10 # Number of cars to add to the CA
 pSlow = 0.1
 maxVel = 5
-pChange = 0.5
-strategy = 'random' # random, mike
+pChange = 0.1
+strategy = 'euro' # random, symmetric, euro
 animatie = True
 
 # Starting cars
-start = generateStart(N, M, carnum, maxVel)
+start = generateStart(N, M, carnum, maxVel, np.random.rand(carnum))
 
 
 # Create a CA object
