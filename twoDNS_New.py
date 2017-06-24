@@ -133,6 +133,58 @@ class CAtwoD(object):
 			
 		return frontGap, frontVel, backGap, backVel, frontCar, backCar
 	
+	def changeCriteriaPlus(self, ID, lane):
+		'''
+		Function which finds the gap between the vehicle in front, behind, relative
+		velocities between the vehicles. This data should allow for the information
+		a car needs to decide between changing lanes. Also finds the second gap,
+		so the gap front gap of the car in front.
+		
+		@param ID: ID of the car we want to find the data for
+		@param lane: For which lane we want to estimate this (can be current or
+		neighbouring lanes)
+		'''
+		
+		currentCar = self.carIndex[ID]
+		i, j = currentCar.posCurrent[0], lane
+		
+		
+		# Find the gap in front, and velocity of car in front if applicable
+		frontGap = self.maxvel  # init at max value road
+		frontVel = 0
+		frontCar = currentCar
+		for k in range(1, self.maxvel + 1):
+
+			if self.grid[(i+k) % self.N, j] != 0:  # Car is found
+				frontGap = k-1 
+				frontVel = self.carIndex[self.grid[(i+k) % self.N, j]].v
+				frontCar = self.carIndex[self.grid[(i+k) % self.N, j]]
+				break
+			
+		frontFrontGap = self.maxvel
+		m = frontCar.posCurrent[0]
+		
+		for k in range(1, self.maxvel + 1):
+			if self.grid[(m +k) % self.N, j] != 0:
+				frontFrontGap = k -1
+			
+		# Find the gap at back and the velocity if applicable
+		
+				# Find the gap in front
+		backGap = self.maxvel  # init at max value road
+		backVel = 0
+		backCar = currentCar
+		for k in range(1, self.maxvel + 1):
+
+			if self.grid[(i-k) % self.N, j] != 0:  # Car is found
+				backGap = k-1 
+				backVel = self.carIndex[self.grid[(i-k) % self.N, j]].v
+				backCar = self.carIndex[self.grid[(i-k) % self.N, j]]  
+				break
+			
+		return frontGap, frontVel, backGap, backVel, frontCar, backCar, frontFrontGap
+	
+	
 	def jamLane(self, numLanes):
 		'''
 		Function which finds returns a list of booleans, most left at start
@@ -201,11 +253,13 @@ class CAtwoD(object):
 			
 			possShifts = [] # Store the shifts that might be done
 					
-			frontGap, frontVel, backGap, backVel = self.changeCriteria(car.ID, j)
+			frontGap, frontVel, backGap, backVel, frontCar, backCar, frontFrontGap = self.changeCriteriaPlus(car.ID, j)
 			
 			# All logic for the left lane resides here
 			if j - 1 >= 0: # The left lane actually exists
-				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel = self.changeCriteria(car.ID, j-1)
+#				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel = self.changeCriteria(car.ID, j-1)
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftFrontCar, \
+				 leftBackCar, leftFrontFrontGap = self.changeCriteriaPlus(car.ID, j-1)
 				
 				# Check if the position in the other lane is free
 				if self.grid[i, j-1] == 0:
@@ -225,12 +279,20 @@ class CAtwoD(object):
 				else:
 					switchSafe = False
 					
-				if switchPos and switchAdvantage and switchSafe:
+				if leftFrontFrontGap >= frontFrontGap:
+					switchGap2 = True
+				else:
+					switchGap2 = False
+				
+					
+				if switchPos and switchAdvantage and switchSafe and switchGap2:
 					possShifts.append(-1)
 					
 			# Right side logic
 			if j + 1 < self.M : # The right lane actually exists
-				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel = self.changeCriteria(car.ID, j+1)
+#				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel = self.changeCriteria(car.ID, j+1)
+				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel, rightFrontCar, \
+				 rightBackCar, rightFrontFrontGap = self.changeCriteriaPlus(car.ID, j+1)
 				
 				# Check if the position in the other lane is free
 				if self.grid[i, j+1] == 0:
@@ -250,7 +312,13 @@ class CAtwoD(object):
 				else:
 					switchSafe = False
 					
-				if switchPos and switchAdvantage and switchSafe:
+									
+				if rightFrontFrontGap >= frontFrontGap:
+					switchGap2 = True
+				else:
+					switchGap2 = False
+					
+				if switchPos and switchAdvantage and switchSafe and switchGap2:
 					possShifts.append(1)
 					
 					
@@ -432,7 +500,7 @@ class CAtwoD(object):
 			self.grid[newPos] = car.ID
 			
 			# The moment when a car passes the periodic boundary
-			if (posCurrent[0] + car.v) >= N:
+			if (posCurrent[0] + car.v) >= self.N:
 				self.fluxCounter += 1
 			
 			# Update the position of the car object
@@ -491,6 +559,10 @@ class CAtwoD(object):
 		for j in range(self.M):
 			lane = list(np.greater(self.grid[:,j], 0))
 			jamLane = [ sum( 1 for _ in group ) for key, group in itertools.groupby( lane ) if key ]
+			
+			# Check along the boundary if the cars connect
+			if lane[0] == True and lane[-1] == True:
+				jamLane[0] += jamLane.pop()
 			for i in jamLane:
 				if i == 1:
 					continue
@@ -499,9 +571,6 @@ class CAtwoD(object):
 					
 		return jamLengths
 
-				
-	
-	
 def generateStart(N, M, num, maxV, laneProbs):
 	'''
 	Generates a list of tuples containing grid coordinates on which vehicles are
@@ -531,16 +600,16 @@ Executing an instance of the CA
 __________________________________
 '''
 # Parameters
-N, M = 40, 2 # Amount of cells needed for the CA
-carnum = 10 # Number of cars to add to the CA
+N, M = 50, 4 # Amount of cells needed for the CA
+carnum = 100 # Number of cars to add to the CA
 pSlow = 0.1
 maxVel = 5
 pChange = 0.1
-strategy = 'euro' # random, symmetric, euro
+strategy = 'symmetric' # random, symmetric, euro
 animatie = True
 
 # Starting cars
-start = generateStart(N, M, carnum, maxVel, np.random.rand(carnum))
+start = generateStart(N, M, carnum, maxVel, pChange*np.ones(carnum))
 
 
 # Create a CA object
