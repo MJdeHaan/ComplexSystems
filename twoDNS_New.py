@@ -331,7 +331,7 @@ class CAtwoD(object):
 				self.grid[i,j] = 0
 				self.grid[i, j+shift] = car.ID
 				
-	def laneChangeEuro(self):
+	def laneChangeEuro2(self):
 		'''
 		The lane changing logic which is performed before the movement is executed
 		This one tries to only change lanes when it is desirable to do so
@@ -358,7 +358,7 @@ class CAtwoD(object):
 					switchPos = False
 					
 				# Check if the lanechange would allow maintaining of increasing speed
-				if car.v >= frontCar.v and frontCar.v < leftFrontCar.v :
+				if car.v >= frontCar.v and frontCar.v <= leftFrontCar.v :
 					switchAdvantage = True
 				else:
 					switchAdvantage = False
@@ -409,7 +409,107 @@ class CAtwoD(object):
 #		for car in self.carIndex.values():
 #			i, j = car.posCurrent[0], car.posCurrent[1]		
 #			frontGap, frontVel, backGap, backVel = self.changeCriteria(car.ID, j)											
+
+	def laneChangeEuro(self):
+		'''
+		The lane changing logic which is performed before the movement is executed
+		This one tries to only change lanes when it is desirable to do so
+		'''
+
+		for car in self.carIndex.values():
+			i, j = car.posCurrent[0], car.posCurrent[1]
+			# Check in either lanes that are possible if it is desirable to change
+			# lane, by checking if at least the current speed can be maintained
+			# If the current lane allows this, a lane change is not done
+			
+			possShifts = [] # Store the shifts that might be done
 					
+			frontGap, frontVel, backGap, backVel, frontCar, backCar, frontFrontGap = self.changeCriteriaPlus(car.ID, j)
+			
+			# All logic for the left lane resides here
+			if j - 1 >= 0: # The left lane actually exists
+#				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel = self.changeCriteria(car.ID, j-1)
+				leftFrontGap, leftFrontVel, leftBackGap, leftBackVel, leftFrontCar, \
+				 leftBackCar, leftFrontFrontGap = self.changeCriteriaPlus(car.ID, j-1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j-1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the lanechange would allow maintaining of increasing speed
+				if leftFrontGap >= frontGap:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+				# Check if the car on the other lane would need to brake hard..
+				if leftBackGap - leftBackVel >= -1: # arbitrare limit..
+					switchSafe = True 
+				else:
+					switchSafe = False
+					
+				if leftFrontFrontGap >= frontFrontGap:
+					switchGap2 = True
+				else:
+					switchGap2 = False
+				
+					
+				if switchPos and switchAdvantage and switchSafe and switchGap2:
+					possShifts.append(-1)
+					
+			# Right side logic
+			if j + 1 < self.M : # The right lane actually exists
+#				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel = self.changeCriteria(car.ID, j+1)
+				rightFrontGap, rightFrontVel, rightBackGap, rightBackVel, rightFrontCar, \
+				 rightBackCar, rightFrontFrontGap = self.changeCriteriaPlus(car.ID, j+1)
+				
+				# Check if the position in the other lane is free
+				if self.grid[i, j+1] == 0:
+					switchPos = True
+				else:
+					switchPos = False
+					
+				# Check if the lanechange would allow maintaining of increasing speed
+				if rightFrontGap >= frontGap:
+					switchAdvantage = True
+				else:
+					switchAdvantage = False
+					
+				# Check if the car on the other lane would need to brake hard..
+				if rightBackGap - rightBackVel >= -1: # arbitrare limit..
+					switchSafe = True 
+				else:
+					switchSafe = False
+					
+									
+				if rightFrontFrontGap >= frontFrontGap:
+					switchGap2 = True
+				else:
+					switchGap2 = False
+					
+				if switchPos and switchAdvantage and switchSafe and switchGap2:
+					possShifts.append(1)
+					
+					
+			# Logic regarding actually doing the lane change resides here
+			if len(possShifts) > 0 and np.random.rand() < car.pLaneChange:
+				pRight = 0.99
+				if len(possShifts) == 2:
+					if np.random.rand() < pRight:
+						shift = 1
+					else:
+						shift = -1					
+				else:
+					shift = np.random.choice(possShifts)
+				car.posCurrent = (i, j+shift)					
+									
+ # Change lane in car
+				
+				# Update the data in the grid
+				self.grid[i,j] = 0
+				self.grid[i, j+shift] = car.ID					
 	def moveTimeStep(self):
 		''' 
 		Simulate the movement of each of the vehicles according to Nagel-Schrecken
@@ -601,11 +701,11 @@ __________________________________
 '''
 # Parameters
 N, M = 50, 4 # Amount of cells needed for the CA
-carnum = 100 # Number of cars to add to the CA
+carnum = 20 # Number of cars to add to the CA
 pSlow = 0.1
 maxVel = 5
 pChange = 0.1
-strategy = 'symmetric' # random, symmetric, euro
+strategy = 'euro' # random, symmetric, euro
 animatie = True
 
 # Starting cars
