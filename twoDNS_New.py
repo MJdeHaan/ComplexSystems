@@ -440,7 +440,10 @@ class CAtwoD(object):
 					
 				# Check if the lanechange would allow maintaining of increasing speed
 				if leftFrontGap >= frontGap:
-					switchAdvantage = True
+					if frontGap == car.vMax:
+						switchAdvantage = False
+					else:
+						switchAdvantage = True
 				else:
 					switchAdvantage = False
 					
@@ -495,7 +498,7 @@ class CAtwoD(object):
 					
 			# Logic regarding actually doing the lane change resides here
 			if len(possShifts) > 0 and np.random.rand() < car.pLaneChange:
-				pRight = 0.99
+				pRight = 0.85
 				if len(possShifts) == 2:
 					if np.random.rand() < pRight:
 						shift = 1
@@ -701,7 +704,7 @@ __________________________________
 '''
 # Parameters
 N, M = 50, 4 # Amount of cells needed for the CA
-carnum = 20 # Number of cars to add to the CA
+carnum = 50 # Number of cars to add to the CA
 pSlow = 0.1
 maxVel = 5
 pChange = 0.1
