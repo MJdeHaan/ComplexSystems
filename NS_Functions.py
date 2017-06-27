@@ -673,7 +673,7 @@ class CAtwoD(object):
 			jamLane = [ sum( 1 for _ in group ) for key, group in itertools.groupby( lane ) if key ]
 			
 			# Check along the boundary if the cars connect
-			if lane[0] == True and lane[-1] == True:
+			if lane[0] == True and lane[-1] == True and len(jamLane) > 1:
 				jamLane[0] += jamLane.pop()
 			for i in jamLane:
 				if i == 1:
