@@ -1,3 +1,15 @@
+'''
+2D Nagel-Schreckenberg model
+Mike de Haan, Azer Aras, Kees Til
+
+This file consists of three parts:
+Part 1: Definitions and lane changing rules
+Part 2: Choose parameters and run the simulation
+Part 3: Code for animation
+
+To run experiments and simulations or watch animations, choose parameters in part 2.
+'''
+
 import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -6,7 +18,11 @@ import matplotlib.patches as patches
 import itertools
 
 
-################################## Stuff for the model  #######################
+'''
+___________________________________________
+Part 1: Definitions and lane changing rules
+___________________________________________
+'''
 class Car(object):
 	def __init__(self, vMax, vIn, pos, ID, pLaneChange):
 		'''
@@ -710,9 +726,9 @@ def generateStart(N, M, num, maxV, laneProbs):
 	return cars
 
 '''
-__________________________________
-Executing an instance of the CA
-__________________________________
+_____________________________________________
+Part 2: Choose parameters and run simulations
+_____________________________________________
 '''
 # Parameters
 N, M = 50, 4 # Amount of cells needed for the CA
@@ -745,9 +761,9 @@ if animatie == False:
 	
 	
 '''
-___________________________________
-Everything related to the animation 
-___________________________________
+___________________________________________
+Part 3: Everything related to the animation 
+___________________________________________
 '''
 	
 def findCoors(N, M, xmin, xmax, ymin, ymax ):
